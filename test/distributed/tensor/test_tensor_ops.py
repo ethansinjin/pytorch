@@ -1040,6 +1040,25 @@ class DistBucketizeTest(LocalDTensorTestBase):
                 self.assertTrue(result.placements[0].is_shard(shard_dim))
                 self.assertEqual(result.full_tensor(), expected)
 
+    @with_comms
+    def test_bucketize_sharded_boundaries(self):
+        # When boundaries are sharded on dim 0, each rank counts how many of
+        # its local boundary values each input exceeds. The sum across ranks
+        # (Partial("sum")) gives the correct global bucket index.
+        with LocalTensorMode(ranks=self.world_size):
+            mesh = self.build_device_mesh()
+            boundaries = torch.tensor([1.0, 3.0, 5.0, 7.0], device=self.device_type)
+            input_tensor = torch.tensor(
+                [[2.0, 4.0, 6.0, 8.0], [0.0, 1.0, 5.0, 9.0]],
+                device=self.device_type,
+            )
+            expected = torch.bucketize(input_tensor, boundaries)
+
+            dist_input = distribute_tensor(input_tensor, mesh, [Replicate()])
+            dist_boundaries = distribute_tensor(boundaries, mesh, [Shard(0)])
+            result = torch.bucketize(dist_input, dist_boundaries)
+            self.assertEqual(result.full_tensor(), expected)
+
 
 class DistArgMaxArgMinTest(DTensorTestBase):
     _ops = [torch.argmax, torch.argmin]
