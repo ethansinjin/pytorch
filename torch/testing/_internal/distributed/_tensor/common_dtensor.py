@@ -370,7 +370,8 @@ class DTensorContinuousTestBase(MultiProcContinuousTest):
 
     @classmethod
     def backend_str(cls) -> str:
-        return dist.get_default_backend_for_device(cls.device_type())
+        backend = dist.get_default_backend_for_device(DEVICE_TYPE)
+        return backend
 
     @classmethod
     def _init_pg(cls, rank, world_size, rdvz_file):
